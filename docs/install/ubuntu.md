@@ -34,9 +34,12 @@ sudo apt install -y goaccess
 ## 4. Configure
 
 ```bash
-cd /opt/goax
 goax config
 ```
+
+Config file location:
+- If script folder is writable: `/opt/goax/goax.env`
+- Otherwise (no sudo): `~/.config/goax/goax.env`
 
 Example for domain `example.com`:
 
