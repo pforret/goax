@@ -266,25 +266,126 @@ function do_run() {
   # Create output directory if needed
   [[ ! -d "$output_dir" ]] && mkdir -p "$output_dir"
 
-  local output_file="$output_dir/report.html"
-
   IO:print "Log file(s): ${log_files[*]}"
-  IO:print "Output: $output_file"
+  IO:print "Output dir: $output_dir"
   IO:print "Format: $log_format"
 
-  # Run goaccess
-  if [[ ${#log_files[@]} -eq 1 ]]; then
-    goaccess "${log_files[0]}" \
-      --log-format="$log_format" \
-      -o "$output_file"
-  else
-    # Multiple files: concatenate
-    cat "${log_files[@]}" | goaccess \
-      --log-format="$log_format" \
-      -o "$output_file" -
-  fi
+  # Bot detection pattern (case-insensitive)
+  local bot_pattern="bot|crawler|spider|slurp|bingpreview|googlebot|yandex|baidu|semrush|ahref|mj12|dotbot|petalbot|bytespider|gptbot|claudebot|facebookexternalhit|twitterbot|linkedinbot|whatsapp|telegram|applebot|duckduck"
 
-  IO:success "Report generated: $output_file"
+  # Create temp file with all logs combined
+  local tmp_all
+  tmp_all=$(Os:tempfile log)
+  cat "${log_files[@]}" > "$tmp_all"
+
+  # Generate all.html (all traffic)
+  IO:progress "Generating all.html..."
+  goaccess "$tmp_all" --log-format="$log_format" -o "$output_dir/all.html" 2>/dev/null
+
+  # Generate bots.html (bots only)
+  IO:progress "Generating bots.html..."
+  grep -iE "$bot_pattern" "$tmp_all" | goaccess --log-format="$log_format" -o "$output_dir/bots.html" - 2>/dev/null || true
+
+  # Generate nobots.html (no bots)
+  IO:progress "Generating nobots.html..."
+  grep -ivE "$bot_pattern" "$tmp_all" | goaccess --log-format="$log_format" -o "$output_dir/nobots.html" - 2>/dev/null || true
+
+  # Generate index.html wrapper
+  generate_index "$output_dir"
+
+  IO:success "Reports generated in $output_dir"
+  IO:print "  - all.html    (all traffic)"
+  IO:print "  - bots.html   (bots only)"
+  IO:print "  - nobots.html (no bots)"
+  IO:print "  - index.html  (navigation)"
+}
+
+function generate_index() {
+  local output_dir="$1"
+  local timestamp
+  timestamp=$(date "+%Y-%m-%d %H:%M")
+
+  cat > "$output_dir/index.html" << 'HTMLEOF'
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Web Statistics</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    nav {
+      background: #2c3e50;
+      padding: 0 20px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 1000;
+    }
+    nav a {
+      color: #ecf0f1;
+      text-decoration: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+    nav a:hover, nav a.active {
+      background: #34495e;
+    }
+    nav a.active {
+      background: #3498db;
+    }
+    .title {
+      color: #ecf0f1;
+      font-weight: bold;
+      margin-right: 20px;
+    }
+    .timestamp {
+      color: #95a5a6;
+      font-size: 12px;
+      margin-left: auto;
+    }
+    iframe {
+      position: fixed;
+      top: 50px;
+      left: 0;
+      width: 100%;
+      height: calc(100vh - 50px);
+      border: none;
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <span class="title">Web Stats</span>
+    <a href="#" onclick="load('nobots.html')" id="nav-nobots">No Bots</a>
+    <a href="#" onclick="load('all.html')" id="nav-all">All Traffic</a>
+    <a href="#" onclick="load('bots.html')" id="nav-bots">Bots Only</a>
+HTMLEOF
+
+  echo "    <span class=\"timestamp\">Updated: $timestamp</span>" >> "$output_dir/index.html"
+
+  cat >> "$output_dir/index.html" << 'HTMLEOF'
+  </nav>
+  <iframe id="report" src="nobots.html"></iframe>
+  <script>
+    function load(page) {
+      document.getElementById('report').src = page;
+      document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+      document.getElementById('nav-' + page.replace('.html','')).classList.add('active');
+      return false;
+    }
+    document.getElementById('nav-nobots').classList.add('active');
+  </script>
+</body>
+</html>
+HTMLEOF
 }
 
 #####################################################################
