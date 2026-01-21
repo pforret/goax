@@ -141,6 +141,7 @@ function do_config() {
     "/var/log/apache2/access.log"
     "/var/log/httpd/access_log"
   )
+  local loc
   for loc in "${log_locations[@]}"; do
     if [[ -f "$loc" ]]; then
       detected_log="$loc"
