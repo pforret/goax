@@ -486,78 +486,63 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#1-goaxsh-install-install-goaccess" class="md-nav__link">
+  <a href="#1-goaxsh-install-install-goaccess-done" class="md-nav__link">
     <span class="md-ellipsis">
-      1. goax.sh install - Install goaccess
+      1. goax.sh install - Install goaccess ✅ DONE
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-goaxsh-config-create-config-file" class="md-nav__link">
+  <a href="#2-goaxsh-config-create-config-file-done" class="md-nav__link">
     <span class="md-ellipsis">
-      2. goax.sh config - Create config file
+      2. goax.sh config - Create config file ✅ DONE
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-goaxsh-folder-setup-protected-stats-folder" class="md-nav__link">
+  <a href="#3-goaxsh-folder-setup-protected-stats-folder-done" class="md-nav__link">
     <span class="md-ellipsis">
-      3. goax.sh folder - Setup protected stats folder
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="3. goax.sh folder - Setup protected stats folder">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#nginx" class="md-nav__link">
-    <span class="md-ellipsis">
-      Nginx
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#apache" class="md-nav__link">
-    <span class="md-ellipsis">
-      Apache
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#4-goaxsh-run-generate-reports" class="md-nav__link">
-    <span class="md-ellipsis">
-      4. goax.sh run - Generate reports
+      3. goax.sh folder - Setup protected stats folder ✅ DONE
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#optionconfig-changes" class="md-nav__link">
+  <a href="#4-goaxsh-run-generate-reports-done" class="md-nav__link">
     <span class="md-ellipsis">
-      Option:config changes
+      4. goax.sh run - Generate reports ✅ DONE
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#unresolved-questions" class="md-nav__link">
+  <a href="#optionconfig-done" class="md-nav__link">
     <span class="md-ellipsis">
-      Unresolved Questions
+      Option:config ✅ DONE
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#documentation-done" class="md-nav__link">
+    <span class="md-ellipsis">
+      Documentation ✅ DONE
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#future-enhancements" class="md-nav__link">
+    <span class="md-ellipsis">
+      Future Enhancements
     </span>
   </a>
   
@@ -595,94 +580,68 @@
 
 
 <h1 id="goax-implementation-plan">goax Implementation Plan<a class="headerlink" href="#goax-implementation-plan" title="Permanent link">&para;</a></h1>
-<h2 id="1-goaxsh-install-install-goaccess">1. <code>goax.sh install</code> - Install goaccess<a class="headerlink" href="#1-goaxsh-install-install-goaccess" title="Permanent link">&para;</a></h2>
+<h2 id="1-goaxsh-install-install-goaccess-done">1. <code>goax.sh install</code> - Install goaccess ✅ DONE<a class="headerlink" href="#1-goaxsh-install-install-goaccess-done" title="Permanent link">&para;</a></h2>
 <p>Install goaccess binary with OS detection.</p>
-<ul>
-<li>if <code>which goacccess</code> finds a binary, just show that and stop.</li>
-<li>if not, install via:<ul>
-<li>macOS: <code>brew install goaccess</code></li>
-<li>Debian/Ubuntu: <code>apt install goaccess</code></li>
-<li>RHEL/CentOS: <code>yum install goaccess</code></li>
-<li>Arch: <code>pacman -S goaccess</code></li>
-</ul>
-</li>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> if <code>which goaccess</code> finds a binary, show path and version</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> if not, use <code>Os:require</code> to show install instructions per OS</li>
 </ul>
 <hr />
-<h2 id="2-goaxsh-config-create-config-file">2. <code>goax.sh config</code> - Create config file<a class="headerlink" href="#2-goaxsh-config-create-config-file" title="Permanent link">&para;</a></h2>
-<p>Interactive setup for <code>.goax.env</code>:</p>
-<ul>
-<li>simple setup: 1 access log, 1 set of reports</li>
-<li>
-<p>multi-setup: folder with multiple access logs, separate set of reports per website
-<div class="highlight"><pre><span></span><code><span class="nv">ACCESS_LOG</span><span class="o">=</span><span class="s2">&quot;/var/log/nginx/access.log&quot;</span>
-<span class="c1">#or ACCESS_LOG=&quot;/var/log/nginx/*access.log&quot;</span>
-<span class="nv">OUTPUT_DIR</span><span class="o">=</span><span class="s2">&quot;/var/www/stats&quot;</span>
-<span class="nv">LOG_FORMAT</span><span class="o">=</span><span class="s2">&quot;COMBINED&quot;</span>
-<span class="nv">GOACCESS_CONF</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="w">  </span><span class="c1"># optional custom goaccess.conf</span>
-</code></pre></div></p>
-</li>
-<li>
-<p>Detect common log locations: <code>/var/log/nginx/access.log</code>, <code>/var/log/apache2/access.log</code></p>
-</li>
-<li>Validate log file exists and is readable</li>
-<li>Create output directory if needed</li>
-<li>create <code>/etc/goaccess/goaccess.conf</code> file</li>
+<h2 id="2-goaxsh-config-create-config-file-done">2. <code>goax.sh config</code> - Create config file ✅ DONE<a class="headerlink" href="#2-goaxsh-config-create-config-file-done" title="Permanent link">&para;</a></h2>
+<p>Interactive setup for <code>goax.env</code>:</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Detect common log locations</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Ask for log file path</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Ask for output directory</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Ask for log format</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Save to <code>goax.env</code></li>
+</ul>
+<p>Pending:
+- [ ] Multi-setup: separate reports per website
+- [ ] Create <code>/etc/goaccess/goaccess.conf</code> file</p>
+<hr />
+<h2 id="3-goaxsh-folder-setup-protected-stats-folder-done">3. <code>goax.sh folder</code> - Setup protected stats folder ✅ DONE<a class="headerlink" href="#3-goaxsh-folder-setup-protected-stats-folder-done" title="Permanent link">&para;</a></h2>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Detect nginx or apache</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Create htpasswd file with user</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Show config snippet for nginx</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Show config snippet for apache</li>
 </ul>
 <hr />
-<h2 id="3-goaxsh-folder-setup-protected-stats-folder">3. <code>goax.sh folder</code> - Setup protected stats folder<a class="headerlink" href="#3-goaxsh-folder-setup-protected-stats-folder" title="Permanent link">&para;</a></h2>
-<p>Create password-protected web folder for stats output.</p>
-<h3 id="nginx">Nginx<a class="headerlink" href="#nginx" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><span class="c1"># Create htpasswd file</span>
-htpasswd<span class="w"> </span>-c<span class="w"> </span>/etc/nginx/.htpasswd<span class="w"> </span>statsuser
-
-<span class="c1"># Nginx config snippet</span>
-location<span class="w"> </span>/stats<span class="w"> </span><span class="o">{</span>
-<span class="w">    </span>auth_basic<span class="w"> </span><span class="s2">&quot;Statistics&quot;</span><span class="p">;</span>
-<span class="w">    </span>auth_basic_user_file<span class="w"> </span>/etc/nginx/.htpasswd<span class="p">;</span>
-<span class="w">    </span><span class="nb">alias</span><span class="w"> </span>/var/www/stats<span class="p">;</span>
-<span class="o">}</span>
-</code></pre></div>
-<h3 id="apache">Apache<a class="headerlink" href="#apache" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><span class="c1"># .htaccess in stats folder</span>
-AuthType<span class="w"> </span>Basic
-AuthName<span class="w"> </span><span class="s2">&quot;Statistics&quot;</span>
-AuthUserFile<span class="w"> </span>/etc/apache2/.htpasswd
-Require<span class="w"> </span>valid-user
-</code></pre></div>
-<p>Dependencies: <code>Os:require "htpasswd" "apache2-utils"</code></p>
+<h2 id="4-goaxsh-run-generate-reports-done">4. <code>goax.sh run</code> - Generate reports ✅ DONE<a class="headerlink" href="#4-goaxsh-run-generate-reports-done" title="Permanent link">&para;</a></h2>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Support single log file</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Support glob patterns (multiple files)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Generate <code>all.html</code> (all traffic)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Generate <code>bots.html</code> (bots only)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Generate <code>nobots.html</code> (no bots)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Generate <code>index.html</code> (navigation wrapper)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Bot detection via user-agent patterns</li>
+</ul>
 <hr />
-<h2 id="4-goaxsh-run-generate-reports">4. <code>goax.sh run</code> - Generate reports<a class="headerlink" href="#4-goaxsh-run-generate-reports" title="Permanent link">&para;</a></h2>
-<p>Run goaccess to create HTML report from access logs.</p>
-<div class="highlight"><pre><span></span><code>do_run<span class="o">()</span><span class="w"> </span><span class="o">{</span>
-<span class="w">  </span>Os:require<span class="w"> </span><span class="s2">&quot;goaccess&quot;</span>
-<span class="w">  </span><span class="nb">local</span><span class="w"> </span><span class="nv">log_file</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">ACCESS_LOG</span><span class="k">:-</span><span class="p">/var/log/nginx/access.log</span><span class="si">}</span><span class="s2">&quot;</span>
-<span class="w">  </span><span class="nb">local</span><span class="w"> </span><span class="nv">output</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">OUTPUT_DIR</span><span class="k">:-</span><span class="p">/var/www/stats</span><span class="si">}</span><span class="s2">/report.html&quot;</span>
-<span class="w">  </span><span class="nb">local</span><span class="w"> </span><span class="nv">log_format</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">LOG_FORMAT</span><span class="k">:-</span><span class="nv">COMBINED</span><span class="si">}</span><span class="s2">&quot;</span>
-
-<span class="w">  </span>goaccess<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$log_file</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--log-format<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$log_format</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>-o<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$output</span><span class="s2">&quot;</span>
-<span class="o">}</span>
-</code></pre></div>
-<p>Options:
-- <code>-o html|json|csv</code> output format</p>
-<p>Crontab example:
-<div class="highlight"><pre><span></span><code>0 * * * * /path/to/goax.sh run
-</code></pre></div></p>
-<hr />
-<h2 id="optionconfig-changes">Option:config changes<a class="headerlink" href="#optionconfig-changes" title="Permanent link">&para;</a></h2>
+<h2 id="optionconfig-done">Option:config ✅ DONE<a class="headerlink" href="#optionconfig-done" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>choice<span class="p">|</span><span class="m">1</span><span class="p">|</span>action<span class="p">|</span>action<span class="w"> </span>to<span class="w"> </span>perform<span class="p">|</span>install,config,folder,run,check,env,update
 option<span class="p">|</span>l<span class="p">|</span>LOG_FILE<span class="p">|</span>nginx<span class="w"> </span>access<span class="w"> </span>log<span class="w"> </span>path<span class="p">|</span>
 option<span class="p">|</span>o<span class="p">|</span>OUTPUT<span class="p">|</span>output<span class="w"> </span>folder<span class="w"> </span><span class="k">for</span><span class="w"> </span>reports<span class="p">|</span>
 option<span class="p">|</span>F<span class="p">|</span>FORMAT<span class="p">|</span>log<span class="w"> </span>format<span class="w"> </span><span class="o">(</span>COMBINED/COMMON/...<span class="o">)</span><span class="p">|</span>COMBINED
 </code></pre></div>
 <hr />
-<h2 id="unresolved-questions">Unresolved Questions<a class="headerlink" href="#unresolved-questions" title="Permanent link">&para;</a></h2>
+<h2 id="documentation-done">Documentation ✅ DONE<a class="headerlink" href="#documentation-done" title="Permanent link">&para;</a></h2>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> docs/index.md - main documentation</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> docs/install/ubuntu.md</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> docs/install/digitalocean.md</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> docs/install/vps.md</li>
+</ul>
+<hr />
+<h2 id="future-enhancements">Future Enhancements<a class="headerlink" href="#future-enhancements" title="Permanent link">&para;</a></h2>
 <ol>
-<li>Support multiple log files (e.g. <code>access.log*</code> with rotation)? -&gt; optionally, yes</li>
+<li><del>Support multiple log files</del> ✅ Done via glob patterns</li>
 <li>Include GeoIP database setup in <code>install</code>?</li>
-<li>Bot filtering: separate action or option in <code>run</code>?</li>
-<li>Real-time HTML mode: separate action <code>goax.sh live</code>?</li>
+<li><del>Bot filtering</del> ✅ Done - separate reports generated</li>
+<li>Real-time HTML mode: <code>goax.sh live</code>?</li>
+<li>JSON/CSV output formats?</li>
+<li>Per-website multi-config support?</li>
 </ol>
 
 
