@@ -61,6 +61,14 @@ param|?|input|input file/text
 function Script:main() {
   IO:log "[$script_basename] $script_version started"
 
+  # Load user config from ~/.config/goax/ if exists
+  local user_config="$HOME/.config/goax/goax.env"
+  if [[ -f "$user_config" ]]; then
+    IO:debug "Loading user config: $user_config"
+    # shellcheck disable=SC1090
+    source "$user_config"
+  fi
+
   Os:require "awk"
 
   case "${action,,}" in
@@ -132,7 +140,19 @@ function do_install() {
 
 function do_config() {
   IO:log "config"
-  local env_file="goax.env"
+
+  # Determine config file location
+  local env_file=""
+  local config_dir="$HOME/.config/goax"
+
+  # Try script install folder first
+  if [[ -w "$script_install_folder" ]]; then
+    env_file="$script_install_folder/goax.env"
+  # Fall back to ~/.config/goax/
+  else
+    [[ ! -d "$config_dir" ]] && mkdir -p "$config_dir"
+    env_file="$config_dir/goax.env"
+  fi
 
   # Detect log file location
   local detected_log=""
@@ -166,10 +186,12 @@ function do_config() {
   log_format=$(IO:question "Log format (COMBINED/COMMON/CLOUDFRONT/...)" "COMBINED")
 
   # Write config file
-  IO:print "# goax configuration" > "$env_file"
-  IO:print "ACCESS_LOG=\"$log_file\"" >> "$env_file"
-  IO:print "OUTPUT_DIR=\"$output_dir\"" >> "$env_file"
-  IO:print "LOG_FORMAT=\"$log_format\"" >> "$env_file"
+  {
+    echo "# goax configuration"
+    echo "ACCESS_LOG=\"$log_file\""
+    echo "OUTPUT_DIR=\"$output_dir\""
+    echo "LOG_FORMAT=\"$log_format\""
+  } > "$env_file"
 
   IO:success "Config saved to $env_file"
   cat "$env_file"
