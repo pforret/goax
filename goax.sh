@@ -132,7 +132,7 @@ function do_install() {
 
 function do_config() {
   IO:log "config"
-  local env_file=".goax.env"
+  local env_file="goax.env"
 
   # Detect log file location
   local detected_log=""
@@ -246,7 +246,45 @@ function do_folder() {
 
 function do_run() {
   IO:log "run"
-  # placeholder
+  Os:require "goaccess"
+
+  local log_file="${LOG_FILE:-${ACCESS_LOG:-/var/log/nginx/access.log}}"
+  local output_dir="${OUTPUT:-${OUTPUT_DIR:-/var/www/stats}}"
+  local log_format="${FORMAT:-${LOG_FORMAT:-COMBINED}}"
+
+  # Support for glob patterns (multiple log files)
+  local log_files=()
+  # shellcheck disable=SC2086
+  for f in $log_file; do
+    [[ -f "$f" ]] && log_files+=("$f")
+  done
+
+  if [[ ${#log_files[@]} -eq 0 ]]; then
+    IO:die "No log files found matching: $log_file"
+  fi
+
+  # Create output directory if needed
+  [[ ! -d "$output_dir" ]] && mkdir -p "$output_dir"
+
+  local output_file="$output_dir/report.html"
+
+  IO:print "Log file(s): ${log_files[*]}"
+  IO:print "Output: $output_file"
+  IO:print "Format: $log_format"
+
+  # Run goaccess
+  if [[ ${#log_files[@]} -eq 1 ]]; then
+    goaccess "${log_files[0]}" \
+      --log-format="$log_format" \
+      -o "$output_file"
+  else
+    # Multiple files: concatenate
+    cat "${log_files[@]}" | goaccess \
+      --log-format="$log_format" \
+      -o "$output_file" -
+  fi
+
+  IO:success "Report generated: $output_file"
 }
 
 #####################################################################
