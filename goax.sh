@@ -296,6 +296,9 @@ function do_run() {
   # Bot detection pattern (case-insensitive)
   local bot_pattern="bot|crawler|spider|slurp|bingpreview|googlebot|yandex|baidu|semrush|ahref|mj12|dotbot|petalbot|bytespider|gptbot|claudebot|facebookexternalhit|twitterbot|linkedinbot|whatsapp|telegram|applebot|duckduck"
 
+  # LLM bot pattern (AI crawlers)
+  local llm_pattern="gptbot|chatgpt-user|claudebot|claude-web|anthropic|bytespider|ccbot|perplexitybot|cohere-ai|meta-externalagent|amazonbot|youbot|ai2bot|diffbot|omgili|iaskspider"
+
   # Create temp file with all logs combined
   local tmp_all
   tmp_all=$(Os:tempfile log)
@@ -313,14 +316,19 @@ function do_run() {
   IO:progress "Generating nobots.html..."
   grep -ivE "$bot_pattern" "$tmp_all" | goaccess --log-format="$log_format" -o "$output_dir/nobots.html" - 2>/dev/null || true
 
+  # Generate llmbots.html (LLM/AI bots only)
+  IO:progress "Generating llmbots.html..."
+  grep -iE "$llm_pattern" "$tmp_all" | goaccess --log-format="$log_format" -o "$output_dir/llmbots.html" - 2>/dev/null || true
+
   # Generate index.html wrapper
   generate_index "$output_dir"
 
   IO:success "Reports generated in $output_dir"
-  IO:print "  - all.html    (all traffic)"
-  IO:print "  - bots.html   (bots only)"
-  IO:print "  - nobots.html (no bots)"
-  IO:print "  - index.html  (navigation)"
+  IO:print "  - all.html     (all traffic)"
+  IO:print "  - bots.html    (all bots)"
+  IO:print "  - nobots.html  (no bots)"
+  IO:print "  - llmbots.html (LLM/AI bots)"
+  IO:print "  - index.html   (navigation)"
 }
 
 function generate_index() {
@@ -389,7 +397,8 @@ function generate_index() {
     <span class="title">Web Stats</span>
     <a href="#" onclick="load('nobots.html')" id="nav-nobots">No Bots</a>
     <a href="#" onclick="load('all.html')" id="nav-all">All Traffic</a>
-    <a href="#" onclick="load('bots.html')" id="nav-bots">Bots Only</a>
+    <a href="#" onclick="load('bots.html')" id="nav-bots">All Bots</a>
+    <a href="#" onclick="load('llmbots.html')" id="nav-llmbots">LLM Bots</a>
 HTMLEOF
 
   echo "    <span class=\"timestamp\">Updated: $timestamp</span>" >> "$output_dir/index.html"
