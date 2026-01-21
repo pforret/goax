@@ -176,7 +176,72 @@ function do_config() {
 
 function do_folder() {
   IO:log "folder"
-  # placeholder
+  Os:require "htpasswd" "apache2-utils"
+
+  local output_dir="${OUTPUT_DIR:-/var/www/stats}"
+  local stats_user="${input:-statsuser}"
+
+  # Detect web server
+  local webserver=""
+  [[ -d /etc/nginx ]] && webserver="nginx"
+  [[ -d /etc/apache2 ]] && webserver="apache"
+  [[ -d /etc/httpd ]] && webserver="apache"
+
+  if [[ -z "$webserver" ]]; then
+    IO:die "Could not detect nginx or apache installation"
+  fi
+
+  IO:print "Setting up protected folder for: $webserver"
+  IO:print "Output directory: $output_dir"
+  IO:print "Stats user: $stats_user"
+
+  # Create output directory
+  if [[ ! -d "$output_dir" ]]; then
+    IO:announce "Creating output directory: $output_dir"
+    mkdir -p "$output_dir"
+  fi
+
+  # Setup htpasswd
+  local htpasswd_file
+  case "$webserver" in
+    nginx)
+      htpasswd_file="/etc/nginx/.htpasswd"
+      ;;
+    apache)
+      htpasswd_file="/etc/apache2/.htpasswd"
+      [[ -d /etc/httpd ]] && htpasswd_file="/etc/httpd/.htpasswd"
+      ;;
+  esac
+
+  if IO:confirm "Create htpasswd file at $htpasswd_file for user '$stats_user'?"; then
+    if [[ -f "$htpasswd_file" ]]; then
+      htpasswd "$htpasswd_file" "$stats_user"
+    else
+      htpasswd -c "$htpasswd_file" "$stats_user"
+    fi
+  fi
+
+  # Show config snippet
+  IO:print ""
+  IO:print "Add this to your $webserver config:"
+  IO:print "---"
+  case "$webserver" in
+    nginx)
+      IO:print "location /stats {"
+      IO:print "    auth_basic \"Statistics\";"
+      IO:print "    auth_basic_user_file $htpasswd_file;"
+      IO:print "    alias $output_dir;"
+      IO:print "}"
+      ;;
+    apache)
+      IO:print "# Add to .htaccess in $output_dir:"
+      IO:print "AuthType Basic"
+      IO:print "AuthName \"Statistics\""
+      IO:print "AuthUserFile $htpasswd_file"
+      IO:print "Require valid-user"
+      ;;
+  esac
+  IO:print "---"
 }
 
 function do_run() {
