@@ -5,7 +5,8 @@
       "Bash(./goax.sh install:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(./goax.sh:*)"
+      "Bash(./goax.sh:*)",
+      "Bash(bash:*)"
     ]
   }
 }
