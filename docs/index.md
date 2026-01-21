@@ -40,14 +40,15 @@ cd goax
 
 ## Generated Reports
 
-The `run` command creates 4 files in your output directory:
+The `run` command creates 5 files in your output directory:
 
 | File | Content |
 |------|---------|
 | `index.html` | Navigation wrapper with menu bar |
 | `all.html` | All traffic (bots + humans) |
 | `nobots.html` | Human traffic only |
-| `bots.html` | Bot traffic only |
+| `bots.html` | All bot traffic |
+| `llmbots.html` | LLM/AI bot traffic only |
 
 ## Configuration
 
@@ -71,9 +72,18 @@ The following user-agents are classified as bots:
 
 - Search engines: Googlebot, Bingbot, Yandex, Baidu, DuckDuckBot
 - SEO tools: Semrush, Ahrefs, Moz, MJ12bot, DotBot
-- AI crawlers: GPTBot, ClaudeBot, Bytespider
 - Social: FacebookExternalHit, TwitterBot, LinkedInBot, WhatsApp
 - Others: Applebot, PetalBot, and generic bot/crawler/spider patterns
+
+## LLM Bot Detection
+
+The `llmbots.html` report specifically tracks AI/LLM crawlers:
+
+- OpenAI: GPTBot, ChatGPT-User
+- Anthropic: ClaudeBot, Claude-Web
+- Other AI: Bytespider, CCBot, PerplexityBot, Cohere-ai
+- Meta: Meta-ExternalAgent
+- Others: AmazonBot, YouBot, AI2Bot, Diffbot, Omgili, iaskspider
 
 ## Cron Setup
 
