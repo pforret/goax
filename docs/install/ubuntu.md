@@ -1,6 +1,6 @@
 # Installing goax on Ubuntu
 
-Tested on Ubuntu 20.04, 22.04, 24.04.
+Tested on Ubuntu 20.04, 22.04, 24.04. Assumes web server (Nginx/Apache) is already running.
 
 ## 1. Prerequisites
 
@@ -38,29 +38,29 @@ cd /opt/goax
 goax config
 ```
 
-Ubuntu defaults:
+Example for domain `example.com`:
 
-| Setting | Nginx | Apache |
-|---------|-------|--------|
-| ACCESS_LOG | `/var/log/nginx/access.log` | `/var/log/apache2/access.log` |
-| OUTPUT_DIR | `/var/www/html/stats` | `/var/www/html/stats` |
-| LOG_FORMAT | `COMBINED` | `COMBINED` |
+| Setting    | Value                                   |
+|------------|-----------------------------------------|
+| ACCESS_LOG | `/var/log/nginx/example.com.access.log` |
+| OUTPUT_DIR | `/var/www/example.com/stats`            |
+| LOG_FORMAT | `COMBINED`                              |
 
 ## 5. Setup protected folder
 
 ```bash
-sudo mkdir -p /var/www/html/stats
+sudo mkdir -p /var/www/example.com/stats
 sudo goax folder statsadmin
 ```
 
 ### For Nginx
 
-Edit `/etc/nginx/sites-available/default`:
+Edit your site config (e.g. `/etc/nginx/sites-available/example.com`):
 ```nginx
 location /stats {
     auth_basic "Statistics";
     auth_basic_user_file /etc/nginx/.htpasswd;
-    alias /var/www/html/stats;
+    alias /var/www/example.com/stats;
     index report.html;
 }
 ```
@@ -73,10 +73,9 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ```bash
 sudo a2enmod auth_basic
-sudo nano /var/www/html/stats/.htaccess
 ```
 
-Add:
+Create `/var/www/example.com/stats/.htaccess`:
 ```apache
 AuthType Basic
 AuthName "Statistics"
@@ -93,6 +92,8 @@ sudo systemctl reload apache2
 ```bash
 sudo goax run
 ```
+
+View at: `https://example.com/stats/`
 
 ## 7. Setup cron
 
@@ -115,13 +116,4 @@ Create `/etc/logrotate.d/goax`:
     missingok
     notifempty
 }
-```
-
-## Firewall
-
-If using UFW:
-```bash
-sudo ufw allow 'Nginx Full'
-# or
-sudo ufw allow 'Apache Full'
 ```
