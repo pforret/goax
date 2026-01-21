@@ -132,7 +132,46 @@ function do_install() {
 
 function do_config() {
   IO:log "config"
-  # placeholder
+  local env_file=".goax.env"
+
+  # Detect log file location
+  local detected_log=""
+  local log_locations=(
+    "/var/log/nginx/access.log"
+    "/var/log/apache2/access.log"
+    "/var/log/httpd/access_log"
+  )
+  for loc in "${log_locations[@]}"; do
+    if [[ -f "$loc" ]]; then
+      detected_log="$loc"
+      break
+    fi
+  done
+
+  # Ask for log file
+  local log_file
+  if [[ -n "$detected_log" ]]; then
+    log_file=$(IO:question "Access log file" "$detected_log")
+  else
+    log_file=$(IO:question "Access log file" "/var/log/nginx/access.log")
+  fi
+
+  # Ask for output directory
+  local output_dir
+  output_dir=$(IO:question "Output directory for HTML reports" "/var/www/stats")
+
+  # Ask for log format
+  local log_format
+  log_format=$(IO:question "Log format (COMBINED/COMMON/CLOUDFRONT/...)" "COMBINED")
+
+  # Write config file
+  IO:print "# goax configuration" > "$env_file"
+  IO:print "ACCESS_LOG=\"$log_file\"" >> "$env_file"
+  IO:print "OUTPUT_DIR=\"$output_dir\"" >> "$env_file"
+  IO:print "LOG_FORMAT=\"$log_format\"" >> "$env_file"
+
+  IO:success "Config saved to $env_file"
+  cat "$env_file"
 }
 
 function do_folder() {
