@@ -369,6 +369,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#llm-bot-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      LLM Bot Detection
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#cron-setup" class="md-nav__link">
     <span class="md-ellipsis">
       Cron Setup
@@ -667,7 +676,7 @@ git<span class="w"> </span>clone<span class="w"> </span>https://github.com/pforr
 </tbody>
 </table>
 <h2 id="generated-reports">Generated Reports<a class="headerlink" href="#generated-reports" title="Permanent link">&para;</a></h2>
-<p>The <code>run</code> command creates 4 files in your output directory:</p>
+<p>The <code>run</code> command creates 5 files in your output directory:</p>
 <table>
 <thead>
 <tr>
@@ -690,7 +699,11 @@ git<span class="w"> </span>clone<span class="w"> </span>https://github.com/pforr
 </tr>
 <tr>
 <td><code>bots.html</code></td>
-<td>Bot traffic only</td>
+<td>All bot traffic</td>
+</tr>
+<tr>
+<td><code>llmbots.html</code></td>
+<td>LLM/AI bot traffic only</td>
 </tr>
 </tbody>
 </table>
@@ -708,9 +721,17 @@ git<span class="w"> </span>clone<span class="w"> </span>https://github.com/pforr
 <ul>
 <li>Search engines: Googlebot, Bingbot, Yandex, Baidu, DuckDuckBot</li>
 <li>SEO tools: Semrush, Ahrefs, Moz, MJ12bot, DotBot</li>
-<li>AI crawlers: GPTBot, ClaudeBot, Bytespider</li>
 <li>Social: FacebookExternalHit, TwitterBot, LinkedInBot, WhatsApp</li>
 <li>Others: Applebot, PetalBot, and generic bot/crawler/spider patterns</li>
+</ul>
+<h2 id="llm-bot-detection">LLM Bot Detection<a class="headerlink" href="#llm-bot-detection" title="Permanent link">&para;</a></h2>
+<p>The <code>llmbots.html</code> report specifically tracks AI/LLM crawlers:</p>
+<ul>
+<li>OpenAI: GPTBot, ChatGPT-User</li>
+<li>Anthropic: ClaudeBot, Claude-Web</li>
+<li>Other AI: Bytespider, CCBot, PerplexityBot, Cohere-ai</li>
+<li>Meta: Meta-ExternalAgent</li>
+<li>Others: AmazonBot, YouBot, AI2Bot, Diffbot, Omgili, iaskspider</li>
 </ul>
 <h2 id="cron-setup">Cron Setup<a class="headerlink" href="#cron-setup" title="Permanent link">&para;</a></h2>
 <p>For hourly reports:</p>
