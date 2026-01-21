@@ -1,97 +1,52 @@
 # goax Implementation Plan
 
-## 1. `goax.sh install` - Install goaccess
+## 1. `goax.sh install` - Install goaccess ✅ DONE
 
 Install goaccess binary with OS detection.
 
-* if `which goacccess` finds a binary, just show that and stop.
-* if not, install via:
-    - macOS: `brew install goaccess`
-    - Debian/Ubuntu: `apt install goaccess`
-    - RHEL/CentOS: `yum install goaccess`
-    - Arch: `pacman -S goaccess`
+- [x] if `which goaccess` finds a binary, show path and version
+- [x] if not, use `Os:require` to show install instructions per OS
 
 ---
 
-## 2. `goax.sh config` - Create config file
+## 2. `goax.sh config` - Create config file ✅ DONE
 
-Interactive setup for `.goax.env`:
+Interactive setup for `goax.env`:
 
-* simple setup: 1 access log, 1 set of reports
-* multi-setup: folder with multiple access logs, separate set of reports per website
-```bash
-ACCESS_LOG="/var/log/nginx/access.log"
-#or ACCESS_LOG="/var/log/nginx/*access.log"
-OUTPUT_DIR="/var/www/stats"
-LOG_FORMAT="COMBINED"
-GOACCESS_CONF=""  # optional custom goaccess.conf
-```
+- [x] Detect common log locations
+- [x] Ask for log file path
+- [x] Ask for output directory
+- [x] Ask for log format
+- [x] Save to `goax.env`
 
-- Detect common log locations: `/var/log/nginx/access.log`, `/var/log/apache2/access.log`
-- Validate log file exists and is readable
-- Create output directory if needed
-- create `/etc/goaccess/goaccess.conf` file
+Pending:
+- [ ] Multi-setup: separate reports per website
+- [ ] Create `/etc/goaccess/goaccess.conf` file
 
 ---
 
-## 3. `goax.sh folder` - Setup protected stats folder
+## 3. `goax.sh folder` - Setup protected stats folder ✅ DONE
 
-Create password-protected web folder for stats output.
-
-### Nginx
-```bash
-# Create htpasswd file
-htpasswd -c /etc/nginx/.htpasswd statsuser
-
-# Nginx config snippet
-location /stats {
-    auth_basic "Statistics";
-    auth_basic_user_file /etc/nginx/.htpasswd;
-    alias /var/www/stats;
-}
-```
-
-### Apache
-```bash
-# .htaccess in stats folder
-AuthType Basic
-AuthName "Statistics"
-AuthUserFile /etc/apache2/.htpasswd
-Require valid-user
-```
-
-Dependencies: `Os:require "htpasswd" "apache2-utils"`
+- [x] Detect nginx or apache
+- [x] Create htpasswd file with user
+- [x] Show config snippet for nginx
+- [x] Show config snippet for apache
 
 ---
 
-## 4. `goax.sh run` - Generate reports
+## 4. `goax.sh run` - Generate reports ✅ DONE
 
-Run goaccess to create HTML report from access logs.
-
-```bash
-do_run() {
-  Os:require "goaccess"
-  local log_file="${ACCESS_LOG:-/var/log/nginx/access.log}"
-  local output="${OUTPUT_DIR:-/var/www/stats}/report.html"
-  local log_format="${LOG_FORMAT:-COMBINED}"
-
-  goaccess "$log_file" \
-    --log-format="$log_format" \
-    -o "$output"
-}
-```
-
-Options:
-- `-o html|json|csv` output format
-
-Crontab example:
-```
-0 * * * * /path/to/goax.sh run
-```
+- [x] Support single log file
+- [x] Support glob patterns (multiple files)
+- [x] Generate `all.html` (all traffic)
+- [x] Generate `bots.html` (bots only)
+- [x] Generate `nobots.html` (no bots)
+- [x] Generate `index.html` (navigation wrapper)
+- [x] Bot detection via user-agent patterns
 
 ---
 
-## Option:config changes
+## Option:config ✅ DONE
 
 ```bash
 choice|1|action|action to perform|install,config,folder,run,check,env,update
@@ -102,9 +57,20 @@ option|F|FORMAT|log format (COMBINED/COMMON/...)|COMBINED
 
 ---
 
-## Unresolved Questions
+## Documentation ✅ DONE
 
-1. Support multiple log files (e.g. `access.log*` with rotation)? -> optionally, yes
+- [x] docs/index.md - main documentation
+- [x] docs/install/ubuntu.md
+- [x] docs/install/digitalocean.md
+- [x] docs/install/vps.md
+
+---
+
+## Future Enhancements
+
+1. ~~Support multiple log files~~ ✅ Done via glob patterns
 2. Include GeoIP database setup in `install`?
-3. Bot filtering: separate action or option in `run`?
-4. Real-time HTML mode: separate action `goax.sh live`?
+3. ~~Bot filtering~~ ✅ Done - separate reports generated
+4. Real-time HTML mode: `goax.sh live`?
+5. JSON/CSV output formats?
+6. Per-website multi-config support?
