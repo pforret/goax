@@ -46,7 +46,10 @@ flag|f|FORCE|do not ask for confirmation (always yes)
 option|L|LOG_DIR|folder for log files |$HOME/log/$script_prefix
 option|T|TMP_DIR|folder for temp files|/tmp/$script_prefix
 #option|W|WIDTH|width of the picture|800
-choice|1|action|action to perform|action1,action2,check,env,update
+option|l|LOG_FILE|nginx access log path|
+option|o|OUTPUT|output folder for reports|
+option|F|FORMAT|log format (COMBINED/COMMON/...)|COMBINED
+choice|1|action|action to perform|install,config,folder,run,check,env,update
 param|?|input|input file/text
 " -v -e '^#' -e '^\s*$'
 }
@@ -61,23 +64,28 @@ function Script:main() {
   Os:require "awk"
 
   case "${action,,}" in
-  action1)
-    #TIP: use «$script_prefix action1» to ...
-    #TIP:> $script_prefix action1
-    do_action1
+  install)
+    #TIP: use «$script_prefix install» to install goaccess
+    #TIP:> $script_prefix install
+    do_install
     ;;
 
-  action2)
-    #TIP: use «$script_prefix action2» to ...
-    #TIP:> $script_prefix action2
-    do_action2
+  config)
+    #TIP: use «$script_prefix config» to create .goax.env config file
+    #TIP:> $script_prefix config
+    do_config
     ;;
 
-  action3)
-    #TIP: use «$script_prefix action3» to ...
-    #TIP:> $script_prefix action3
-    # Os:require "convert" "imagemagick"
-    # CONVERT $input $output
+  folder)
+    #TIP: use «$script_prefix folder» to setup password-protected stats folder
+    #TIP:> $script_prefix folder
+    do_folder
+    ;;
+
+  run)
+    #TIP: use «$script_prefix run» to generate goaccess HTML report
+    #TIP:> $script_prefix run
+    do_run
     ;;
 
   check | env)
@@ -109,19 +117,32 @@ function Script:main() {
 ## Put your helper scripts here
 #####################################################################
 
-function do_action1() {
-  IO:log "action1"
-  # Examples of required binaries/scripts and how to install them
-  # Os:require "ffmpeg"
-  # Os:require "convert" "imagemagick"
-  # Os:require "IO:progressbar" "basher install pforret/IO:progressbar"
-  # (code)
+function do_install() {
+  IO:log "install goaccess"
+  local goaccess_path
+  goaccess_path=$(command -v goaccess 2>/dev/null)
+  if [[ -n "$goaccess_path" ]]; then
+    IO:success "goaccess already installed: $goaccess_path"
+    goaccess --version | head -1
+  else
+    IO:announce "goaccess not found, installing..."
+    Os:require "goaccess"
+  fi
 }
 
-function do_action2() {
-  IO:log "action2"
-  # (code)
+function do_config() {
+  IO:log "config"
+  # placeholder
+}
 
+function do_folder() {
+  IO:log "folder"
+  # placeholder
+}
+
+function do_run() {
+  IO:log "run"
+  # placeholder
 }
 
 #####################################################################
