@@ -14,6 +14,11 @@ readonly script_created="2026-01-21"
 readonly run_as_root=-1 # run_as_root: 0 = don't check anything / 1 = script MUST run as root / -1 = script MAY NOT run as root
 readonly script_description="create stats from nginx access logs"
 
+# cron compatibility: set defaults for variables that may be unset
+[[ -z "${USER:-}" ]] && USER=$(whoami)
+[[ -z "${HOSTNAME:-}" ]] && HOSTNAME=$(hostname)
+[[ -z "${TERM:-}" ]] && TERM=dumb
+
 function Option:config() {
   ### Change the next lines to reflect which flags/options/parameters you need
   ### flag:   switch a flag 'on' / no value specified
