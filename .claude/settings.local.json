@@ -6,7 +6,10 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(./goax.sh:*)",
-      "Bash(bash:*)"
+      "Bash(bash:*)",
+      "WebSearch",
+      "WebFetch(domain:goaccess.io)",
+      "Bash(/Users/pforret/Code/bash/goax/goax.sh:*)"
     ]
   }
 }

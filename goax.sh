@@ -280,23 +280,36 @@ function do_run() {
   local output_dir="${OUTPUT:-${OUTPUT_DIR:-/var/www/stats}}"
   local log_format="${FORMAT:-${LOG_FORMAT:-COMBINED}}"
 
-  # Support for glob patterns (multiple log files)
-  local log_files=()
+  # Separate plain and gzipped files
+  local plain_files=()
+  local gz_files=()
+  local f
   # shellcheck disable=SC2086
   for f in $log_file; do
-    [[ -f "$f" ]] && log_files+=("$f")
+    if [[ -f "$f" ]]; then
+      if [[ "$f" == *.gz ]]; then
+        gz_files+=("$f")
+      else
+        plain_files+=("$f")
+      fi
+    fi
   done
 
-  if [[ ${#log_files[@]} -eq 0 ]]; then
+  local total_files=$(( ${#plain_files[@]} + ${#gz_files[@]} ))
+  if [[ $total_files -eq 0 ]]; then
     IO:die "No log files found matching: $log_file"
   fi
 
   # Create output directory if needed
   [[ ! -d "$output_dir" ]] && mkdir -p "$output_dir"
 
-  IO:print "Log file(s): ${log_files[*]}"
+  IO:print "Log file(s): $total_files total (${#plain_files[@]} plain, ${#gz_files[@]} gzipped)"
   IO:print "Output dir: $output_dir"
   IO:print "Format: $log_format"
+
+  # Set decompression command (macOS vs Linux)
+  local zcat_cmd="zcat"
+  [[ "$os_kernel" == "Darwin" ]] && zcat_cmd="gunzip -c"
 
   # Bot detection pattern (case-insensitive)
   local bot_pattern="bot|crawler|spider|slurp|bingpreview|googlebot|yandex|baidu|semrush|ahref|mj12|dotbot|petalbot|bytespider|gptbot|claudebot|facebookexternalhit|twitterbot|linkedinbot|whatsapp|telegram|applebot|duckduck"
@@ -307,7 +320,18 @@ function do_run() {
   # Create temp file with all logs combined
   local tmp_all
   tmp_all=$(Os:tempfile log)
-  cat "${log_files[@]}" > "$tmp_all"
+
+  # Combine all log files (handling both plain and gzipped)
+  if [[ ${#gz_files[@]} -eq 0 ]]; then
+    # Only plain files
+    cat "${plain_files[@]}" > "$tmp_all"
+  elif [[ ${#plain_files[@]} -eq 0 ]]; then
+    # Only gzipped files
+    $zcat_cmd "${gz_files[@]}" > "$tmp_all"
+  else
+    # Mixed: plain + gzipped
+    { cat "${plain_files[@]}"; $zcat_cmd "${gz_files[@]}"; } > "$tmp_all"
+  fi
 
   # Generate all.html (all traffic)
   IO:progress "Generating all.html..."
