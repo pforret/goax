@@ -422,15 +422,16 @@ HTMLEOF
 
   cat >> "$output_dir/index.html" << 'HTMLEOF'
   </nav>
-  <iframe id="report" src="nobots.html"></iframe>
+  <iframe id="report"></iframe>
   <script>
     function load(page) {
-      document.getElementById('report').src = page;
+      document.getElementById('report').src = page + '?t=' + Date.now();
       document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
       document.getElementById('nav-' + page.replace('.html','')).classList.add('active');
       return false;
     }
     document.getElementById('nav-nobots').classList.add('active');
+    load('nobots.html');
   </script>
 </body>
 </html>
