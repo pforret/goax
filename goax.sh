@@ -280,58 +280,46 @@ function do_run() {
   local output_dir="${OUTPUT:-${OUTPUT_DIR:-/var/www/stats}}"
   local log_format="${FORMAT:-${LOG_FORMAT:-COMBINED}}"
 
-  # Separate plain and gzipped files
-  local plain_files=()
-  local gz_files=()
+  # Create temp file for combined logs
+  local tmp_all
+  tmp_all=$(Os:tempfile log)
+  : > "$tmp_all"
+
+  # Combine all log files (plain + gzipped) into temp file
+  local file_count=0
   local f
   # shellcheck disable=SC2086
   for f in $log_file; do
     if [[ -f "$f" ]]; then
       if [[ "$f" == *.gz ]]; then
-        gz_files+=("$f")
+        gunzip -c "$f" >> "$tmp_all"
       else
-        plain_files+=("$f")
+        cat "$f" >> "$tmp_all"
       fi
+      ((file_count++))
+      IO:debug "Added: $f"
     fi
   done
 
-  local total_files=$(( ${#plain_files[@]} + ${#gz_files[@]} ))
-  if [[ $total_files -eq 0 ]]; then
+  if [[ $file_count -eq 0 ]]; then
     IO:die "No log files found matching: $log_file"
   fi
+
+  local line_count
+  line_count=$(wc -l < "$tmp_all" | tr -d ' ')
 
   # Create output directory if needed
   [[ ! -d "$output_dir" ]] && mkdir -p "$output_dir"
 
-  IO:print "Log file(s): $total_files total (${#plain_files[@]} plain, ${#gz_files[@]} gzipped)"
+  IO:print "Log file(s): $file_count files, $line_count lines"
   IO:print "Output dir: $output_dir"
   IO:print "Format: $log_format"
-
-  # Set decompression command (macOS vs Linux)
-  local zcat_cmd="zcat"
-  [[ "$os_kernel" == "Darwin" ]] && zcat_cmd="gunzip -c"
 
   # Bot detection pattern (case-insensitive)
   local bot_pattern="bot|crawler|spider|slurp|bingpreview|googlebot|yandex|baidu|semrush|ahref|mj12|dotbot|petalbot|bytespider|gptbot|claudebot|facebookexternalhit|twitterbot|linkedinbot|whatsapp|telegram|applebot|duckduck"
 
   # LLM bot pattern (AI crawlers)
   local llm_pattern="gptbot|chatgpt-user|claudebot|claude-web|anthropic|bytespider|ccbot|perplexitybot|cohere-ai|meta-externalagent|amazonbot|youbot|ai2bot|diffbot|omgili|iaskspider"
-
-  # Create temp file with all logs combined
-  local tmp_all
-  tmp_all=$(Os:tempfile log)
-
-  # Combine all log files (handling both plain and gzipped)
-  if [[ ${#gz_files[@]} -eq 0 ]]; then
-    # Only plain files
-    cat "${plain_files[@]}" > "$tmp_all"
-  elif [[ ${#plain_files[@]} -eq 0 ]]; then
-    # Only gzipped files
-    $zcat_cmd "${gz_files[@]}" > "$tmp_all"
-  else
-    # Mixed: plain + gzipped
-    { cat "${plain_files[@]}"; $zcat_cmd "${gz_files[@]}"; } > "$tmp_all"
-  fi
 
   # Generate all.html (all traffic)
   IO:progress "Generating all.html..."
