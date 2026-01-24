@@ -321,6 +321,9 @@ function do_run() {
   # LLM bot pattern (AI crawlers)
   local llm_pattern="gptbot|chatgpt-user|claudebot|claude-web|anthropic|bytespider|ccbot|perplexitybot|cohere-ai|meta-externalagent|amazonbot|youbot|ai2bot|diffbot|omgili|iaskspider"
 
+  # Vulnerability scanner pattern (common exploit paths)
+  local scanner_pattern="/wp-admin|/wp-login|/wp-content|/wp-includes|/xmlrpc\.php|/phpmyadmin|/pma/|/admin\.php|/administrator|/\.env|/\.git|/config\.php|/shell\.php|/cmd\.php|/cgi-bin|/\.well-known|/vendor/|/backup|/db\.php|/database|/mysql|/eval-stdin|/solr|/actuator|/api/v|/graphql|/jenkins|/manager/html|/\.aws|/\.ssh|/id_rsa|/passwd|/etc/passwd|/proc/self|/debug|/console|/elmah|/trace\.axd|/info\.php|/phpinfo|/test\.php|/install\.php|/setup\.php"
+
   # Generate all.html (all traffic)
   IO:progress "Generating all.html..."
   goaccess "$tmp_all" --log-format="$log_format" -o "$output_dir/all.html" 2>/dev/null
@@ -337,15 +340,20 @@ function do_run() {
   IO:progress "Generating llmbots.html..."
   grep -iE "$llm_pattern" "$tmp_all" | goaccess --log-format="$log_format" -o "$output_dir/llmbots.html" - 2>/dev/null || true
 
+  # Generate scanners.html (vulnerability scanners)
+  IO:progress "Generating scanners.html..."
+  grep -iE "$scanner_pattern" "$tmp_all" | goaccess --log-format="$log_format" -o "$output_dir/scanners.html" - 2>/dev/null || true
+
   # Generate index.html wrapper
   generate_index "$output_dir"
 
   IO:success "Reports generated in $output_dir"
-  IO:print "  - all.html     (all traffic)"
-  IO:print "  - bots.html    (all bots)"
-  IO:print "  - nobots.html  (no bots)"
-  IO:print "  - llmbots.html (LLM/AI bots)"
-  IO:print "  - index.html   (navigation)"
+  IO:print "  - all.html      (all traffic)"
+  IO:print "  - bots.html     (all bots)"
+  IO:print "  - nobots.html   (no bots)"
+  IO:print "  - llmbots.html  (LLM/AI bots)"
+  IO:print "  - scanners.html (vuln scanners)"
+  IO:print "  - index.html    (navigation)"
 }
 
 function generate_index() {
@@ -416,6 +424,7 @@ function generate_index() {
     <a href="#" onclick="load('all.html')" id="nav-all">All Traffic</a>
     <a href="#" onclick="load('bots.html')" id="nav-bots">All Bots</a>
     <a href="#" onclick="load('llmbots.html')" id="nav-llmbots">LLM Bots</a>
+    <a href="#" onclick="load('scanners.html')" id="nav-scanners">Scanners</a>
 HTMLEOF
 
   echo "    <span class=\"timestamp\">Updated: $timestamp</span>" >> "$output_dir/index.html"
