@@ -48,10 +48,12 @@ flag|h|help|show usage
 flag|Q|QUIET|no output
 flag|V|VERBOSE|also show debug messages
 flag|f|FORCE|do not ask for confirmation (always yes)
+flag|n|DRY_RUN|show what would be processed + disk estimate, write nothing
 option|L|LOG_DIR|folder for log files |$HOME/log/$script_prefix
 option|T|TMP_DIR|folder for temp files|/tmp/$script_prefix
 #option|W|WIDTH|width of the picture|800
-option|l|LOG_FILE|nginx access log path|
+option|l|LOG_FILE|nginx access log path (glob allowed)|
+option|d|DAYS|only process logs rotated in the last N days (default: all)|
 option|o|OUTPUT|output folder for reports|
 option|F|FORMAT|log format (COMBINED/COMMON/...)|COMBINED
 choice|1|action|action to perform|install,config,folder,run,check,env,update
@@ -272,48 +274,172 @@ function do_folder() {
   IO:print "---"
 }
 
+# --- disk-safety helpers -------------------------------------------------------
+# These exist because goax once filled a server's root disk: it decompressed every
+# rotated .gz access log into one multi-GB temp file with no space check, and
+# abandoned partial temp files accumulated in /tmp across nights. See do_run().
+
+function Goax:bytes() {
+  # size of a file in bytes (Linux + macOS), 0 if missing
+  local f="$1"
+  if [[ "$os_kernel" == "Darwin" ]]; then
+    stat -f%z "$f" 2>/dev/null || echo 0
+  else
+    stat -c%s "$f" 2>/dev/null || echo 0
+  fi
+}
+
+function Goax:free_bytes() {
+  # available bytes on the filesystem that holds <path> (walk up to an existing dir)
+  local path="$1"
+  while [[ ! -d "$path" && "$path" != "/" ]]; do path=$(dirname "$path"); done
+  # df -P = portable columns, -k = 1024-byte blocks; column 4 = available blocks
+  df -Pk "$path" 2>/dev/null | awk 'NR==2 {print $4 * 1024}'
+}
+
+function Goax:mb() {
+  # bytes -> rounded MB, for human-readable output
+  awk -v b="${1:-0}" 'BEGIN { printf "%.0f", b / 1048576 }'
+}
+
+function Goax:abort() {
+  # like IO:die but guarantees a NON-ZERO exit code (bashew's Script:exit always
+  # exits 0). Used by the pre-flight guard so cron/monitoring sees a real failure.
+  IO:print "${txtError}${char_fail} $script_basename${txtReset}: $*" >&2
+  IO:log "ABORT: $*"
+  Os:beep
+  trap - INT TERM EXIT
+  exit 1
+}
+
+function Goax:sweep_tempfiles() {
+  # Delete stale goax temp files left behind by previous aborted/killed runs so
+  # they can never accumulate until the disk is full. Matches Os:tempfile's own
+  # naming pattern only (<YYYY-MM-DD>.<RANDOM>.<ext>) so nothing else is touched.
+  local dir="${TMP_DIR:-/tmp}"
+  [[ -d "$dir" ]] || return 0
+  local minutes="${STALE_MINUTES:-120}"
+  local stale
+  stale=$(find "$dir" -maxdepth 1 -type f \
+    \( -name '2[0-9][0-9][0-9]-[01][0-9]-[0-3][0-9].*.log' \
+    -o -name '2[0-9][0-9][0-9]-[01][0-9]-[0-3][0-9].*.txt' \) \
+    -mmin "+$minutes" 2>/dev/null)
+  [[ -z "$stale" ]] && return 0
+  local count
+  count=$(echo "$stale" | wc -l | tr -d ' ')
+  IO:alert "Sweeping $count stale goax temp file(s) older than ${minutes}min from $dir"
+  echo "$stale" | while read -r f; do
+    [[ -f "$f" ]] && IO:debug "Delete stale temp [$f]" && rm -f "$f"
+  done
+}
+
+function Goax:stream() {
+  # Stream every resolved log file (plain + .gz) to stdout WITHOUT materializing
+  # a giant temp file on disk. Portable: avoids relying on `zcat -f` behaviour.
+  local f
+  for f in "$@"; do
+    if [[ "$f" == *.gz ]]; then
+      gunzip -c "$f" 2>/dev/null
+    else
+      cat "$f"
+    fi
+  done
+}
+# -------------------------------------------------------------------------------
+
 function do_run() {
   IO:log "run"
   Os:require "goaccess"
+  Os:require "gzip" # provides gunzip for streaming .gz logs
 
-  local log_file="${LOG_FILE:-${ACCESS_LOG:-/var/log/nginx/access.log}}"
+  local log_file="${LOG_FILE:-${ACCESS_LOG:-/var/log/nginx/access.log*}}"
   local output_dir="${OUTPUT:-${OUTPUT_DIR:-/var/www/stats}}"
   local log_format="${FORMAT:-${LOG_FORMAT:-COMBINED}}"
+  local days="${DAYS:-}"
+  # tunables (env-overridable); ratio is intentionally high so we never under-estimate
+  local gzip_ratio="${GZIP_RATIO:-20}" # assumed decompression ratio of .gz logs
+  local margin_mb="${MARGIN_MB:-500}"  # free-space safety margin to keep on the fs
 
-  # Create temp file for combined logs
-  local tmp_all
-  tmp_all=$(Os:tempfile log)
-  : > "$tmp_all"
+  # (cleanup #3) sweep abandoned temp files from previous aborted runs FIRST,
+  # before we do anything else, so they can never pile up across nights.
+  Goax:sweep_tempfiles
 
-  # Combine all log files (plain + gzipped) into temp file
-  local file_count=0
+  # 1. Resolve the set of log files to process (honours --days scope) ------------
+  local -a files=()
   local f
   # shellcheck disable=SC2086
-  for f in $log_file; do
-    if [[ -f "$f" ]]; then
-      if [[ "$f" == *.gz ]]; then
-        gunzip -c "$f" >> "$tmp_all"
-      else
-        cat "$f" >> "$tmp_all"
+  for f in $log_file; do # unquoted: allow glob expansion of LOG_FILE
+    [[ -f "$f" ]] || continue
+    if [[ -n "$days" ]]; then
+      # keep only files modified within the last N days (logrotate window)
+      if [[ -z "$(find "$f" -mtime "-$days" 2>/dev/null)" ]]; then
+        IO:debug "Skip (older than $days days): $f"
+        continue
       fi
-      ((file_count++))
-      IO:debug "Added: $f"
     fi
+    files+=("$f")
+    IO:debug "Will process: $f"
   done
 
-  if [[ $file_count -eq 0 ]]; then
-    IO:die "No log files found matching: $log_file"
+  [[ ${#files[@]} -eq 0 ]] && Goax:abort "No log files found matching: $log_file${days:+ (within last $days days)}"
+
+  # 2. Estimate decompressed size & pre-flight disk-space guard (priority #1) ----
+  # We sum the source log sizes; for .gz we multiply by a conservative ratio to
+  # approximate the decompressed volume. We then refuse to start unless the target
+  # filesystem has that much free PLUS a safety margin. This makes it impossible
+  # for goax to ever fill the disk again, even if anything spills to disk.
+  local plain_bytes=0 gz_bytes=0 sz
+  for f in "${files[@]}"; do
+    sz=$(Goax:bytes "$f")
+    if [[ "$f" == *.gz ]]; then
+      gz_bytes=$((gz_bytes + sz))
+    else
+      plain_bytes=$((plain_bytes + sz))
+    fi
+  done
+  local est_bytes=$((plain_bytes + gz_bytes * gzip_ratio))
+  local margin_bytes=$((margin_mb * 1024 * 1024))
+  local need_bytes=$((est_bytes + margin_bytes))
+
+  local tmp_dir="${TMP_DIR:-/tmp}"
+  [[ -d "$tmp_dir" ]] || mkdir -p "$tmp_dir"
+  local free_bytes
+  free_bytes=$(Goax:free_bytes "$tmp_dir")
+
+  IO:print "Log files     : ${#files[@]} ($(Goax:mb "$plain_bytes")MB plain + $(Goax:mb "$gz_bytes")MB gz compressed)"
+  IO:print "Est. unpacked : ~$(Goax:mb "$est_bytes")MB (gz x${gzip_ratio})"
+  IO:print "Need + margin : ~$(Goax:mb "$need_bytes")MB (incl ${margin_mb}MB margin)"
+  IO:print "Free on $tmp_dir : $(Goax:mb "$free_bytes")MB"
+  IO:print "Output dir    : $output_dir"
+  IO:print "Format        : $log_format"
+  IO:log "run: ${#files[@]} files, est $(Goax:mb "$est_bytes")MB, need $(Goax:mb "$need_bytes")MB, free $(Goax:mb "$free_bytes")MB"
+
+  # 3. Dry-run: report the plan + verdict, write nothing, exit 0 -----------------
+  if ((DRY_RUN)); then
+    IO:print "${txtBold}-- DRY RUN: the following files WOULD be processed --${txtReset}"
+    for f in "${files[@]}"; do
+      IO:print "  $f ($(Goax:mb "$(Goax:bytes "$f")")MB)"
+    done
+    if [[ -z "$free_bytes" ]]; then
+      IO:alert "WOULD ABORT: could not determine free space on $tmp_dir"
+    elif ((free_bytes < need_bytes)); then
+      IO:alert "WOULD ABORT: not enough free space (need ~$(Goax:mb "$need_bytes")MB, have $(Goax:mb "$free_bytes")MB)"
+    else
+      IO:success "WOULD PROCEED: enough free space, no temp file is written (logs streamed directly)"
+    fi
+    return 0
   fi
 
-  local line_count
-  line_count=$(wc -l < "$tmp_all" | tr -d ' ')
+  # 4. The guard itself: abort cleanly (non-zero) BEFORE writing anything --------
+  if [[ -z "$free_bytes" ]]; then
+    Goax:abort "Could not determine free space on $tmp_dir (df failed) - refusing to run"
+  fi
+  if ((free_bytes < need_bytes)); then
+    Goax:abort "Not enough free disk space on $tmp_dir: need ~$(Goax:mb "$need_bytes")MB, have only $(Goax:mb "$free_bytes")MB - aborting before writing anything"
+  fi
 
   # Create output directory if needed
   [[ ! -d "$output_dir" ]] && mkdir -p "$output_dir"
-
-  IO:print "Log file(s): $file_count files, $line_count lines"
-  IO:print "Output dir: $output_dir"
-  IO:print "Format: $log_format"
 
   # Bot detection pattern (case-insensitive)
   local bot_pattern="bot|crawler|spider|slurp|bingpreview|googlebot|yandex|baidu|semrush|ahref|mj12|dotbot|petalbot|bytespider|gptbot|claudebot|facebookexternalhit|twitterbot|linkedinbot|whatsapp|telegram|applebot|duckduck"
@@ -324,25 +450,24 @@ function do_run() {
   # Vulnerability scanner pattern (common exploit paths)
   local scanner_pattern="/wp-admin|/wp-login|/wp-content|/wp-includes|/xmlrpc\.php|/phpmyadmin|/pma/|/admin\.php|/administrator|/\.env|/\.git|/config\.php|/shell\.php|/cmd\.php|/cgi-bin|/\.well-known|/vendor/|/backup|/db\.php|/database|/mysql|/eval-stdin|/solr|/actuator|/api/v|/graphql|/jenkins|/manager/html|/\.aws|/\.ssh|/id_rsa|/passwd|/etc/passwd|/proc/self|/debug|/console|/elmah|/trace\.axd|/info\.php|/phpinfo|/test\.php|/install\.php|/setup\.php"
 
-  # Generate all.html (all traffic)
+  # 5. Generate reports WITHOUT a giant temp file (priority #2) ------------------
+  # all.html: goaccess reads .gz natively and accepts multiple files directly.
   IO:progress "Generating all.html..."
-  goaccess "$tmp_all" --log-format="$log_format" -o "$output_dir/all.html" 2>/dev/null
+  goaccess "${files[@]}" --log-format="$log_format" -o "$output_dir/all.html" 2>/dev/null
 
-  # Generate bots.html (bots only)
+  # filtered variants: stream the logs through grep into goaccess via a pipe, so
+  # nothing is ever materialized on disk.
   IO:progress "Generating bots.html..."
-  grep -iE "$bot_pattern" "$tmp_all" | goaccess --log-format="$log_format" -o "$output_dir/bots.html" - 2>/dev/null || true
+  Goax:stream "${files[@]}" | grep -iE "$bot_pattern" | goaccess --log-format="$log_format" -o "$output_dir/bots.html" - 2>/dev/null || true
 
-  # Generate nobots.html (no bots)
   IO:progress "Generating nobots.html..."
-  grep -ivE "$bot_pattern" "$tmp_all" | goaccess --log-format="$log_format" -o "$output_dir/nobots.html" - 2>/dev/null || true
+  Goax:stream "${files[@]}" | grep -ivE "$bot_pattern" | goaccess --log-format="$log_format" -o "$output_dir/nobots.html" - 2>/dev/null || true
 
-  # Generate llmbots.html (LLM/AI bots only)
   IO:progress "Generating llmbots.html..."
-  grep -iE "$llm_pattern" "$tmp_all" | goaccess --log-format="$log_format" -o "$output_dir/llmbots.html" - 2>/dev/null || true
+  Goax:stream "${files[@]}" | grep -iE "$llm_pattern" | goaccess --log-format="$log_format" -o "$output_dir/llmbots.html" - 2>/dev/null || true
 
-  # Generate scanners.html (vulnerability scanners)
   IO:progress "Generating scanners.html..."
-  grep -iE "$scanner_pattern" "$tmp_all" | goaccess --log-format="$log_format" -o "$output_dir/scanners.html" - 2>/dev/null || true
+  Goax:stream "${files[@]}" | grep -iE "$scanner_pattern" | goaccess --log-format="$log_format" -o "$output_dir/scanners.html" - 2>/dev/null || true
 
   # Generate index.html wrapper
   generate_index "$output_dir"
