@@ -355,7 +355,7 @@ function Goax:stream() {
 function Goax:done() {
   # report how long a generation step took: Goax:done <start_time> <step.html>
   local start="$1" name="$2"
-  IO:print "  $name done in $(Tool:round "$(Tool:calc "$(Tool:time) - $start")" 1)s"
+  IO:print " # $name done in $(Tool:round "$(Tool:calc "$(Tool:time) - $start")" 1)s    "
 }
 # -------------------------------------------------------------------------------
 
@@ -482,6 +482,7 @@ function do_run() {
       if ! gunzip -c "$f" >"$gz_tmp" 2>/dev/null; then
         Goax:abort "Failed decompressing $f -> $gz_tmp (disk full?) - aborting"
       fi
+      IO:debug "Decompressed $gz_tmp !"
       inputs+=("$gz_tmp")
       ((gz_count++))
     else
