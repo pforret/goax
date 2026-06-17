@@ -308,6 +308,12 @@ function Goax:abort() {
   IO:print "${txtError}${char_fail} $script_basename${txtReset}: $*" >&2
   IO:log "ABORT: $*"
   Os:beep
+  # remove any temp file we registered (e.g. a partial decompress) before exiting,
+  # since this bypasses bashew's Script:exit cleanup
+  local tf
+  for tf in "${temp_files[@]-}"; do
+    [[ -f "$tf" ]] && rm -f "$tf"
+  done
   trap - INT TERM EXIT
   exit 1
 }
@@ -431,7 +437,7 @@ function do_run() {
     elif ((free_bytes < need_bytes)); then
       IO:alert "WOULD ABORT: not enough free space (need ~$(Goax:mb "$need_bytes")MB, have $(Goax:mb "$free_bytes")MB)"
     else
-      IO:success "WOULD PROCEED: enough free space, no temp file is written (logs streamed directly)"
+      IO:success "WOULD PROCEED: enough free space; would write a ~$(Goax:mb "$est_bytes")MB decompressed temp file to $tmp_dir (auto-removed on exit)"
     fi
     return 0
   fi
@@ -456,34 +462,50 @@ function do_run() {
   # Vulnerability scanner pattern (common exploit paths)
   local scanner_pattern="/wp-admin|/wp-login|/wp-content|/wp-includes|/xmlrpc\.php|/phpmyadmin|/pma/|/admin\.php|/administrator|/\.env|/\.git|/config\.php|/shell\.php|/cmd\.php|/cgi-bin|/\.well-known|/vendor/|/backup|/db\.php|/database|/mysql|/eval-stdin|/solr|/actuator|/api/v|/graphql|/jenkins|/manager/html|/\.aws|/\.ssh|/id_rsa|/passwd|/etc/passwd|/proc/self|/debug|/console|/elmah|/trace\.axd|/info\.php|/phpinfo|/test\.php|/install\.php|/setup\.php"
 
-  # 5. Generate reports WITHOUT a giant temp file (priority #2) ------------------
-  local t0
-  # all.html: goaccess reads .gz natively and accepts multiple files directly.
+  # 5. Decompress ONCE to a guarded temp file, then run every report against it -
+  # (priority #2) The pre-flight guard above already verified this filesystem has
+  # room for the decompressed file + margin. Os:tempfile registers it for cleanup
+  # on EXIT/INT/TERM (and Goax:abort), so it can't leak even if a write fails.
+  # This collapses 5 decompression passes into 1; reports stay sequential so the
+  # per-step timing below remains meaningful.
+  local tmp_all t0
+  tmp_all=$(Os:tempfile log)
+  # Os:tempfile registers the file in temp_files INSIDE a $(...) subshell, so the
+  # parent shell's array never sees it and Script:exit/Goax:abort can't clean it
+  # up (this is the original temp-file accumulation bug). Re-register it here.
+  temp_files+=("$tmp_all")
+  IO:progress "Decompressing logs to temp file..."
+  t0=$(Tool:time)
+  if ! Goax:stream "${files[@]}" > "$tmp_all"; then
+    Goax:abort "Failed while writing decompressed logs to $tmp_all (disk full?) - aborting"
+  fi
+  Goax:done "$t0" "decompress"
+
+  # all.html: all traffic (reads the temp file, no re-decompression)
   IO:progress "Generating all.html..."
   t0=$(Tool:time)
-  goaccess "${files[@]}" --log-format="$log_format" -o "$output_dir/all.html" 2>/dev/null
+  goaccess "$tmp_all" --log-format="$log_format" -o "$output_dir/all.html" 2>/dev/null
   Goax:done "$t0" "all.html"
 
-  # filtered variants: stream the logs through grep into goaccess via a pipe, so
-  # nothing is ever materialized on disk.
+  # filtered variants grep the same temp file (1 decompression, not 5)
   IO:progress "Generating bots.html..."
   t0=$(Tool:time)
-  Goax:stream "${files[@]}" | grep -iE "$bot_pattern" | goaccess --log-format="$log_format" -o "$output_dir/bots.html" - 2>/dev/null || true
+  grep -iE "$bot_pattern" "$tmp_all" | goaccess --log-format="$log_format" -o "$output_dir/bots.html" - 2>/dev/null || true
   Goax:done "$t0" "bots.html"
 
   IO:progress "Generating nobots.html..."
   t0=$(Tool:time)
-  Goax:stream "${files[@]}" | grep -ivE "$bot_pattern" | goaccess --log-format="$log_format" -o "$output_dir/nobots.html" - 2>/dev/null || true
+  grep -ivE "$bot_pattern" "$tmp_all" | goaccess --log-format="$log_format" -o "$output_dir/nobots.html" - 2>/dev/null || true
   Goax:done "$t0" "nobots.html"
 
   IO:progress "Generating llmbots.html..."
   t0=$(Tool:time)
-  Goax:stream "${files[@]}" | grep -iE "$llm_pattern" | goaccess --log-format="$log_format" -o "$output_dir/llmbots.html" - 2>/dev/null || true
+  grep -iE "$llm_pattern" "$tmp_all" | goaccess --log-format="$log_format" -o "$output_dir/llmbots.html" - 2>/dev/null || true
   Goax:done "$t0" "llmbots.html"
 
   IO:progress "Generating scanners.html..."
   t0=$(Tool:time)
-  Goax:stream "${files[@]}" | grep -iE "$scanner_pattern" | goaccess --log-format="$log_format" -o "$output_dir/scanners.html" - 2>/dev/null || true
+  grep -iE "$scanner_pattern" "$tmp_all" | goaccess --log-format="$log_format" -o "$output_dir/scanners.html" - 2>/dev/null || true
   Goax:done "$t0" "scanners.html"
 
   # Generate index.html wrapper
