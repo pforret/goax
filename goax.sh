@@ -345,6 +345,12 @@ function Goax:stream() {
     fi
   done
 }
+
+function Goax:done() {
+  # report how long a generation step took: Goax:done <start_time> <step.html>
+  local start="$1" name="$2"
+  IO:print "  $name done in $(Tool:round "$(Tool:calc "$(Tool:time) - $start")" 1)s"
+}
 # -------------------------------------------------------------------------------
 
 function do_run() {
@@ -451,23 +457,34 @@ function do_run() {
   local scanner_pattern="/wp-admin|/wp-login|/wp-content|/wp-includes|/xmlrpc\.php|/phpmyadmin|/pma/|/admin\.php|/administrator|/\.env|/\.git|/config\.php|/shell\.php|/cmd\.php|/cgi-bin|/\.well-known|/vendor/|/backup|/db\.php|/database|/mysql|/eval-stdin|/solr|/actuator|/api/v|/graphql|/jenkins|/manager/html|/\.aws|/\.ssh|/id_rsa|/passwd|/etc/passwd|/proc/self|/debug|/console|/elmah|/trace\.axd|/info\.php|/phpinfo|/test\.php|/install\.php|/setup\.php"
 
   # 5. Generate reports WITHOUT a giant temp file (priority #2) ------------------
+  local t0
   # all.html: goaccess reads .gz natively and accepts multiple files directly.
   IO:progress "Generating all.html..."
+  t0=$(Tool:time)
   goaccess "${files[@]}" --log-format="$log_format" -o "$output_dir/all.html" 2>/dev/null
+  Goax:done "$t0" "all.html"
 
   # filtered variants: stream the logs through grep into goaccess via a pipe, so
   # nothing is ever materialized on disk.
   IO:progress "Generating bots.html..."
+  t0=$(Tool:time)
   Goax:stream "${files[@]}" | grep -iE "$bot_pattern" | goaccess --log-format="$log_format" -o "$output_dir/bots.html" - 2>/dev/null || true
+  Goax:done "$t0" "bots.html"
 
   IO:progress "Generating nobots.html..."
+  t0=$(Tool:time)
   Goax:stream "${files[@]}" | grep -ivE "$bot_pattern" | goaccess --log-format="$log_format" -o "$output_dir/nobots.html" - 2>/dev/null || true
+  Goax:done "$t0" "nobots.html"
 
   IO:progress "Generating llmbots.html..."
+  t0=$(Tool:time)
   Goax:stream "${files[@]}" | grep -iE "$llm_pattern" | goaccess --log-format="$log_format" -o "$output_dir/llmbots.html" - 2>/dev/null || true
+  Goax:done "$t0" "llmbots.html"
 
   IO:progress "Generating scanners.html..."
+  t0=$(Tool:time)
   Goax:stream "${files[@]}" | grep -iE "$scanner_pattern" | goaccess --log-format="$log_format" -o "$output_dir/scanners.html" - 2>/dev/null || true
+  Goax:done "$t0" "scanners.html"
 
   # Generate index.html wrapper
   generate_index "$output_dir"
